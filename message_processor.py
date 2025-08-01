@@ -5,6 +5,9 @@ from datetime import datetime, timezone, timedelta
 from loguru import logger
 import config
 
+# 定义中国时区 (UTC+8)
+CHINA_TIMEZONE = timezone(timedelta(hours=8))
+
 class MessageProcessor:
     """消息处理器，用于解析和格式化UTrack WebSocket消息"""
     
@@ -364,7 +367,7 @@ class MessageProcessor:
         }
         
     def _parse_time(self, time_str: str) -> Optional[str]:
-        """解析多种时间格式并转换为本地时区"""
+        """解析多种时间格式并转换为中国时区 (UTC+8)"""
         if not time_str:
             return None
         
@@ -374,10 +377,10 @@ class MessageProcessor:
                 timestamp = int(time_str)
                 if timestamp > 1000000000000:  # 毫秒时间戳
                     timestamp = timestamp / 1000
-                # 假设时间戳是UTC时间，转换为本地时区
+                # 假设时间戳是UTC时间，转换为中国时区
                 utc_time = datetime.fromtimestamp(timestamp, tz=timezone.utc)
-                local_time = utc_time.astimezone()  # 转换为本地时区
-                return local_time.strftime('%Y-%m-%d %H:%M:%S')
+                china_time = utc_time.astimezone(CHINA_TIMEZONE)  # 转换为中国时区
+                return china_time.strftime('%Y-%m-%d %H:%M:%S')
             except ValueError:
                 pass
             
@@ -387,26 +390,26 @@ class MessageProcessor:
                 if time_str.endswith('Z'):
                     time_str = time_str.replace('Z', '+00:00')
                 tweet_time = datetime.fromisoformat(time_str)
-                # 转换为本地时区
-                local_time = tweet_time.astimezone()
-                return local_time.strftime('%Y-%m-%d %H:%M:%S')
+                # 转换为中国时区
+                china_time = tweet_time.astimezone(CHINA_TIMEZONE)
+                return china_time.strftime('%Y-%m-%d %H:%M:%S')
             
             # 尝试Twitter格式 (Wed Aug 01 14:30:00 +0000 2025)
             try:
                 tweet_time = datetime.strptime(time_str, '%a %b %d %H:%M:%S %z %Y')
-                # 转换为本地时区
-                local_time = tweet_time.astimezone()
-                return local_time.strftime('%Y-%m-%d %H:%M:%S')
+                # 转换为中国时区
+                china_time = tweet_time.astimezone(CHINA_TIMEZONE)
+                return china_time.strftime('%Y-%m-%d %H:%M:%S')
             except ValueError:
                 pass
             
             # 尝试简单日期时间格式 (2025-08-01 14:30:00)
             try:
                 tweet_time = datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S')
-                # 假设是UTC时间，转换为本地时区
+                # 假设是UTC时间，转换为中国时区
                 utc_time = tweet_time.replace(tzinfo=timezone.utc)
-                local_time = utc_time.astimezone()
-                return local_time.strftime('%Y-%m-%d %H:%M:%S')
+                china_time = utc_time.astimezone(CHINA_TIMEZONE)
+                return china_time.strftime('%Y-%m-%d %H:%M:%S')
             except ValueError:
                 pass
             
@@ -424,10 +427,10 @@ class MessageProcessor:
             for fmt in formats:
                 try:
                     tweet_time = datetime.strptime(time_str, fmt)
-                    # 假设是UTC时间，转换为本地时区
+                    # 假设是UTC时间，转换为中国时区
                     utc_time = tweet_time.replace(tzinfo=timezone.utc)
-                    local_time = utc_time.astimezone()
-                    return local_time.strftime('%Y-%m-%d %H:%M:%S')
+                    china_time = utc_time.astimezone(CHINA_TIMEZONE)
+                    return china_time.strftime('%Y-%m-%d %H:%M:%S')
                 except ValueError:
                     continue
             
@@ -603,8 +606,9 @@ class MessageProcessor:
             user_url = f"https://x.com/{user.get('handle', 'unknown')}"
             message_text += f"<b>用户链接:</b> {user_url}\n"
         
-        # 时间信息
-        message_text += f"<b>时间:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        # 时间信息 - 使用中国时区
+        china_time = datetime.now(CHINA_TIMEZONE)
+        message_text += f"<b>时间:</b> {china_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
         
         # 截断消息长度
         if len(message_text) > config.config.MAX_MESSAGE_LENGTH:
@@ -678,8 +682,9 @@ class MessageProcessor:
             user_url = f"https://x.com/{user.get('handle', 'unknown')}"
             message_text += f"<b>用户链接:</b> {user_url}\n"
         
-        # 时间信息
-        message_text += f"<b>时间:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        # 时间信息 - 使用中国时区
+        china_time = datetime.now(CHINA_TIMEZONE)
+        message_text += f"<b>时间:</b> {china_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
         
         # 截断消息长度
         if len(message_text) > config.config.MAX_MESSAGE_LENGTH:

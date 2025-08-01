@@ -131,9 +131,16 @@ class WebSocketClient:
         try:
             # 获取高精度时间戳
             receive_time = time.time()
+            receive_time_ms = int(receive_time * 1000)
+            receive_time_str = datetime.fromtimestamp(receive_time).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+            
             self.message_count += 1
             
-            # 快速检查是否为Twitter消息（减少日志开销）
+            # 记录接收时间日志
+            logger.info(f"📨 [接收时间] 时间戳: {receive_time_ms}ms")
+            logger.info(f"📨 [接收时间] 格式化: {receive_time_str}")
+            
+            # 快速检查是否为Twitter消息
             is_twitter = self.message_processor.is_twitter_message(message)
             
             # 解析消息
@@ -141,11 +148,14 @@ class WebSocketClient:
             if not parsed_data:
                 return
                 
-            # 快速延迟计算（仅对Twitter消息）
+            # 推文发布时间处理（仅对Twitter消息）
             if is_twitter and parsed_data.get('type') == 'utrack_tweet':
                 original_created_at = parsed_data.get('created_at', '')
                 if original_created_at:
                     try:
+                        # 记录推文发布时间
+                        logger.info(f"📅 [推文时间] 原始发布时间: {original_created_at}")
+                        
                         # 快速时间戳解析
                         tweet_timestamp = None
                         if isinstance(original_created_at, (int, str)):
@@ -158,17 +168,24 @@ class WebSocketClient:
                                 pass
                         
                         if tweet_timestamp:
+                            # 记录解析后的推文时间
+                            tweet_time_str = datetime.fromtimestamp(tweet_timestamp).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+                            logger.info(f"📅 [推文时间] 解析后时间: {tweet_time_str}")
+                            
                             # 计算延迟（毫秒）
                             delay_ms = int((receive_time - tweet_timestamp) * 1000)
+                            logger.info(f"🚀 [延迟监控] 推文发布到接收延迟: {delay_ms}ms")
                             
-                            # 只记录高延迟警告，减少日志开销
+                            # 延迟警告
                             if delay_ms > 800:
                                 logger.warning(f"⚠️ [延迟警告] 延迟过高: {delay_ms}ms")
                             elif delay_ms > 500:
-                                logger.info(f"⚠️ [延迟警告] 延迟较高: {delay_ms}ms")
+                                logger.warning(f"⚠️ [延迟警告] 延迟较高: {delay_ms}ms")
+                            else:
+                                logger.info(f"✅ [延迟监控] 延迟正常: {delay_ms}ms")
                             
-                    except Exception:
-                        pass  # 忽略时间解析错误，减少日志开销
+                    except Exception as e:
+                        logger.error(f"📅 [推文时间] 时间解析错误: {e}")
             
             # 格式化Telegram消息
             telegram_message = self.message_processor.format_telegram_message(parsed_data)
@@ -178,10 +195,14 @@ class WebSocketClient:
             # 立即发送到Telegram（不等待）
             asyncio.create_task(self.telegram_client.queue_message(telegram_message))
             
-            # 计算处理时间（仅记录高延迟）
+            # 计算处理时间
             processing_time = (time.time() - receive_time) * 1000
-            if processing_time > 100:  # 只记录超过100ms的处理时间
-                logger.warning(f"🐦 [性能警告] 消息处理耗时: {processing_time:.2f}ms")
+            
+            # 记录性能统计
+            if is_twitter:
+                logger.info(f"🐦 [Twitter消息] 处理完成 - 耗时: {processing_time:.2f}ms")
+            else:
+                logger.debug(f"💬 [普通消息] 处理完成 - 耗时: {processing_time:.2f}ms")
                 
         except Exception as e:
             self.error_count += 1
