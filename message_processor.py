@@ -167,9 +167,19 @@ class MessageProcessor:
             media_urls = []
             if media:
                 if media.get('images'):
-                    media_urls.extend([img.get('url', '') for img in media['images']])
+                    # 处理图片URL - 可能是字符串列表或字典列表
+                    for img in media['images']:
+                        if isinstance(img, str):
+                            media_urls.append(img)
+                        elif isinstance(img, dict):
+                            media_urls.append(img.get('url', ''))
                 if media.get('videos'):
-                    media_urls.extend([video.get('url', '') for video in media['videos']])
+                    # 处理视频URL - 可能是字符串列表或字典列表
+                    for video in media['videos']:
+                        if isinstance(video, str):
+                            media_urls.append(video)
+                        elif isinstance(video, dict):
+                            media_urls.append(video.get('url', ''))
             
             # 提取提及用户及其简介
             mentions = []
