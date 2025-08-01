@@ -1,7 +1,7 @@
 import json
 import re
 from typing import Dict, Any, Optional, List
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from loguru import logger
 import config
 
@@ -364,7 +364,7 @@ class MessageProcessor:
         }
         
     def _parse_time(self, time_str: str) -> Optional[str]:
-        """解析多种时间格式"""
+        """解析多种时间格式并转换为本地时区"""
         if not time_str:
             return None
         
@@ -374,27 +374,39 @@ class MessageProcessor:
                 timestamp = int(time_str)
                 if timestamp > 1000000000000:  # 毫秒时间戳
                     timestamp = timestamp / 1000
-                tweet_time = datetime.fromtimestamp(timestamp)
-                return tweet_time.strftime('%Y-%m-%d %H:%M:%S')
+                # 假设时间戳是UTC时间，转换为本地时区
+                utc_time = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+                local_time = utc_time.astimezone()  # 转换为本地时区
+                return local_time.strftime('%Y-%m-%d %H:%M:%S')
             except ValueError:
                 pass
             
             # 尝试ISO格式 (2025-08-01T14:30:00Z 或 2025-08-01T14:30:00+00:00)
             if 'T' in time_str and ('Z' in time_str or '+' in time_str):
-                tweet_time = datetime.fromisoformat(time_str.replace('Z', '+00:00'))
-                return tweet_time.strftime('%Y-%m-%d %H:%M:%S')
+                # 处理UTC时间
+                if time_str.endswith('Z'):
+                    time_str = time_str.replace('Z', '+00:00')
+                tweet_time = datetime.fromisoformat(time_str)
+                # 转换为本地时区
+                local_time = tweet_time.astimezone()
+                return local_time.strftime('%Y-%m-%d %H:%M:%S')
             
             # 尝试Twitter格式 (Wed Aug 01 14:30:00 +0000 2025)
             try:
                 tweet_time = datetime.strptime(time_str, '%a %b %d %H:%M:%S %z %Y')
-                return tweet_time.strftime('%Y-%m-%d %H:%M:%S')
+                # 转换为本地时区
+                local_time = tweet_time.astimezone()
+                return local_time.strftime('%Y-%m-%d %H:%M:%S')
             except ValueError:
                 pass
             
             # 尝试简单日期时间格式 (2025-08-01 14:30:00)
             try:
                 tweet_time = datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S')
-                return tweet_time.strftime('%Y-%m-%d %H:%M:%S')
+                # 假设是UTC时间，转换为本地时区
+                utc_time = tweet_time.replace(tzinfo=timezone.utc)
+                local_time = utc_time.astimezone()
+                return local_time.strftime('%Y-%m-%d %H:%M:%S')
             except ValueError:
                 pass
             
@@ -412,7 +424,10 @@ class MessageProcessor:
             for fmt in formats:
                 try:
                     tweet_time = datetime.strptime(time_str, fmt)
-                    return tweet_time.strftime('%Y-%m-%d %H:%M:%S')
+                    # 假设是UTC时间，转换为本地时区
+                    utc_time = tweet_time.replace(tzinfo=timezone.utc)
+                    local_time = utc_time.astimezone()
+                    return local_time.strftime('%Y-%m-%d %H:%M:%S')
                 except ValueError:
                     continue
             
